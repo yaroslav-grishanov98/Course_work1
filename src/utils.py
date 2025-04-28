@@ -22,8 +22,54 @@ logger = logging.getLogger(__name__)
 _cache: Dict[Any, Any] = {}
 _cache_time: Dict[Any, float] = {}
 
+import os
+import requests
+import logging
+from typing import Any, Dict, List, Union
+
+logger = logging.getLogger(__name__)
+
+
+def get_currency_rates(
+    currencies: List[str],
+) -> List[Dict[str, Union[str, float]]]:
+    """Получает курсы валют с использованием ключа API из .env файла"""
+    try:
+
+        def fetch_data() -> Dict[str, Any]:
+            api_key = os.getenv("EXCHANGE_API_KEY", "")
+            url = "https://open.er-api.com/v6/latest/RUB"
+            headers = {}
+
+            if api_key:
+                headers["Authorization"] = f"Bearer {api_key}"
+
+            response = requests.get(url, headers=headers)
+            if response.status_code != 200:
+                logger.error(f"Ошибка API: Статус {response.status_code}")
+                return {"rates": {}}
+            return response.json()
+
+        data = with_cache(fetch_data, "currency_rates", ttl=3600)
+
+        result: List[Dict[str, Union[str, float]]] = []
+        for curr in currencies:
+            if curr in data.get("rates", {}):
+                rate = round(1 / data["rates"][curr], 2)
+                result.append({"currency": curr, "rate": rate})
+            else:
+                logger.warning(f"Валюта {curr} не найдена в ответе API")
+                result.append({"currency": curr, "rate": 0.0})
+
+        logger.info(f"Получены курсы валют: {result}")
+        return result
+    except Exception as e:
+        logger.error(f"Ошибка при получении курсов валют: {e}")
+        return [{"currency": curr, "rate": 0.0} for curr in currencies]
+
 
 def with_cache(func: Callable[[], Any], cache_key: Any, ttl: int = 300) -> Any:
+    """Кэширует результаты функции на указанное время"""
     current_time = time.time()
     if cache_key in _cache and current_time - _cache_time[cache_key] < ttl:
         logger.debug(f"Используются кэшированные данные для {cache_key}")
@@ -36,6 +82,7 @@ def with_cache(func: Callable[[], Any], cache_key: Any, ttl: int = 300) -> Any:
 
 
 def load_transactions(file_path: str) -> pd.DataFrame:
+    """Загружает транзакции из Excel-файла"""
     try:
         abs_file_path = os.path.join(BASE_DIR, file_path)
         logger.info(f"Загрузка данных из {abs_file_path}")
@@ -131,6 +178,7 @@ def load_transactions(file_path: str) -> pd.DataFrame:
 
 
 def filter_transactions_by_month(df: pd.DataFrame, date_str: str) -> pd.DataFrame:
+    """Фильтрует транзакции с начала месяца по указанную дату"""
     try:
         target_date = datetime.datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S")
         start_date = target_date.replace(day=1, hour=0, minute=0, second=0)
@@ -148,6 +196,7 @@ def filter_transactions_by_month(df: pd.DataFrame, date_str: str) -> pd.DataFram
 
 
 def get_greeting(time_str: str) -> str:
+    """Определяет приветствие в зависимости от времени суток"""
     hour = datetime.datetime.strptime(time_str, "%Y-%m-%d %H:%M:%S").hour
 
     if 5 <= hour < 12:
@@ -160,6 +209,7 @@ def get_greeting(time_str: str) -> str:
 
 
 def load_user_settings() -> Dict[str, List[str]]:
+    """Загружает пользовательские настройки из JSON-файла"""
     try:
         settings_path = os.path.join(BASE_DIR, "user_settings.json")
         with open(settings_path, "r", encoding="utf-8") as f:
@@ -177,6 +227,7 @@ def load_user_settings() -> Dict[str, List[str]]:
 def get_currency_rates(
     currencies: List[str],
 ) -> List[Dict[str, Union[str, float]]]:
+    """Получает курсы валют"""
     try:
 
         def fetch_data() -> Dict[str, Any]:
@@ -216,6 +267,7 @@ except ImportError:
 def get_stock_prices(
     stocks: List[str],
 ) -> List[Dict[str, Union[str, float]]]:
+    """Получает текущие цены на акции"""
     try:
         if use_yfinance:
             result: List[Dict[str, Union[str, float]]] = []
@@ -264,6 +316,7 @@ def get_stock_prices(
 def filter_transactions_by_period(
     df: pd.DataFrame, date_str: str, period: str = "M"
 ) -> pd.DataFrame:
+    """ Фильтрует транзакции по указанному периоду"""
     try:
         if not isinstance(date_str, str):
             date_str = date_str.strftime("%Y-%m-%d %H:%M:%S")

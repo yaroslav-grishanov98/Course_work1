@@ -1,9 +1,9 @@
 import datetime
-from typing import Any, Dict, List, Tuple  # Добавлен Tuple
+from typing import Any, Dict, List, Tuple
 
 import pandas as pd
 
-from src.utils import filter_transactions_by_period  # Также нужно добавить этот импорт
+from src.utils import filter_transactions_by_period
 from src.utils import (
     filter_transactions_by_month,
     get_currency_rates,
@@ -16,7 +16,7 @@ from src.utils import (
 
 
 def get_card_info(df: pd.DataFrame) -> List[Dict[str, Any]]:
-    """Получение информации о карте (последние 4 цифры, сумма расходов, кэшбэк"""
+    """Получение информации о карте"""
     try:
         card_column = [col for col in df.columns if 'card' in col.lower()][0]
         amount_column = [col for col in df.columns if 'amount' in col.lower() or 'sum' in col.lower()][0]
@@ -120,14 +120,11 @@ def get_expenses_income_data(df: pd.DataFrame) -> Tuple[Dict[str, Any], Dict[str
         amount_column = [col for col in df.columns if 'amount' in col.lower() or 'sum' in col.lower()][0]
         category_column = [col for col in df.columns if 'category' in col.lower()][0]
 
-        # Разделяем расходы и доходы
         expenses_df = df[df[amount_column] < 0].copy()
         income_df = df[df[amount_column] > 0].copy()
 
-        # Значения для расходов
         expenses_df[amount_column] = expenses_df[amount_column].abs()
 
-        # Общая сумма расходов и доходов
         total_expenses = int(expenses_df[amount_column].sum())
         total_income = int(income_df[amount_column].sum())
 
@@ -204,7 +201,7 @@ def get_expenses_income_data(df: pd.DataFrame) -> Tuple[Dict[str, Any], Dict[str
 
 
 def generate_events_page_response(date_str: str, period: str = "M") -> Dict[str, Any]:
-    """Генерация JSON-ответа для страницы События"""
+    """Генерация JSON-ответа для страницы события"""
     try:
         transaction_df = load_transactions("data/operations.xlsx")
         filtered_df = filter_transactions_by_period(transaction_df, date_str, period)

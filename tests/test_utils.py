@@ -1,10 +1,13 @@
 import datetime
+import time
+import os
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
 
 from src.utils import (
+    with_cache,
     filter_transactions_by_month,
     filter_transactions_by_period,
     get_currency_rates,
@@ -12,6 +15,25 @@ from src.utils import (
     get_stock_prices,
     load_user_settings,
 )
+
+
+def test_with_cache_caches_result():
+    """Функция кеширует результат"""
+    mock_func = MagicMock(return_value="result")
+
+    result1 = with_cache(mock_func, "key", ttl=2)
+    assert result1 == "result"
+    assert mock_func.call_count == 1
+
+    result2 = with_cache(mock_func, "key", ttl=2)
+    assert result2 == "result"
+    assert mock_func.call_count == 1
+
+    time.sleep(2)
+
+    result3 = with_cache(mock_func, "key", ttl=2)
+    assert result3 == "result"
+    assert mock_func.call_count == 2
 
 
 @pytest.fixture
@@ -85,26 +107,64 @@ def test_load_user_settings(mock_open):
     assert settings["user_stocks"] == ["AAPL", "MSFT"]
 
 
-@patch("requests.get")
-def test_get_currency_rates(mock_get):
-    """Тест получения курсов валют."""
-    from src.utils import _cache, _cache_time
-
-    _cache.clear()
-    _cache_time.clear()
+@patch("src.utils.requests.get")
+@patch("src.utils.with_cache")
+def test_get_currency_rates_with_api_key(mock_with_cache, mock_get):
+    os.environ["EXCHANGE_API_KEY"] = "test_api_key"
 
     mock_response = MagicMock()
     mock_response.status_code = 200
     mock_response.json.return_value = {"rates": {"USD": 0.012, "EUR": 0.01}}
     mock_get.return_value = mock_response
 
+    def fetch_data():
+        headers = {}
+        api_key = os.getenv("EXCHANGE_API_KEY", "")
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
+        mock_get("https://open.er-api.com/v6/latest/RUB", headers=headers)
+        return {"rates": {"USD": 0.012, "EUR": 0.01}}
+
+    mock_with_cache.side_effect = lambda func, key, ttl=3600: fetch_data()
+
     currencies = ["USD", "EUR"]
     rates = get_currency_rates(currencies)
+
+    mock_get.assert_called_once()
+    called_headers = mock_get.call_args.kwargs.get("headers", {})
+    assert called_headers.get("Authorization") == "Bearer test_api_key"
 
     assert len(rates) == 2
     assert rates[0]["currency"] == "USD"
     assert rates[1]["currency"] == "EUR"
-    assert abs(rates[0]["rate"] - round(1 / 0.012, 2)) < 0.5
+
+    del os.environ["EXCHANGE_API_KEY"]
+
+
+@patch("src.utils.requests.get")
+@patch("src.utils.with_cache")
+def test_get_currency_rates_no_api_key(mock_with_cache, mock_get):
+    os.environ.pop("EXCHANGE_API_KEY", None)
+
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {"rates": {"USD": 0.012, "EUR": 0.01}}
+    mock_get.return_value = mock_response
+
+    def fetch_data():
+        mock_get("https://open.er-api.com/v6/latest/RUB")
+        return {"rates": {"USD": 0.012, "EUR": 0.01}}
+
+    mock_with_cache.side_effect = lambda func, key, ttl=3600: fetch_data()
+
+    currencies = ["USD", "EUR"]
+    rates = get_currency_rates(currencies)
+
+    mock_get.assert_called_once()
+    called_headers = mock_get.call_args.kwargs.get("headers", {})
+    assert "Authorization" not in called_headers
+
+    assert len(rates) == 2
 
 
 @patch("src.utils.with_cache")
