@@ -1,19 +1,19 @@
 import datetime
-import time
 import os
+import time
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
 
 from src.utils import (
-    with_cache,
     filter_transactions_by_month,
     filter_transactions_by_period,
     get_currency_rates,
     get_greeting,
     get_stock_prices,
     load_user_settings,
+    with_cache,
 )
 
 

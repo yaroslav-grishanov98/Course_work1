@@ -22,13 +22,6 @@ logger = logging.getLogger(__name__)
 _cache: Dict[Any, Any] = {}
 _cache_time: Dict[Any, float] = {}
 
-import os
-import requests
-import logging
-from typing import Any, Dict, List, Union
-
-logger = logging.getLogger(__name__)
-
 
 def get_currency_rates(
     currencies: List[str],

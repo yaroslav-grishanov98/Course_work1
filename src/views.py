@@ -1,11 +1,10 @@
-import datetime
 from typing import Any, Dict, List, Tuple
 
 import pandas as pd
 
-from src.utils import filter_transactions_by_period
 from src.utils import (
     filter_transactions_by_month,
+    filter_transactions_by_period,
     get_currency_rates,
     get_greeting,
     get_stock_prices,

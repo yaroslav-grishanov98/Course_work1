@@ -1,12 +1,14 @@
 import datetime
-import pytest
+
 import pandas as pd
+import pytest
+
 from src.views import (
-    get_card_info,
-    get_top_transactions,
-    get_expenses_income_data,
-    generate_main_page_response,
     generate_events_page_response,
+    generate_main_page_response,
+    get_card_info,
+    get_expenses_income_data,
+    get_top_transactions,
 )
 
 
